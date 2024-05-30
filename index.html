@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request per Second Graph</title>
+    <style>
+        /* Styles for the chart container */
+        #chartContainer {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Request per Second</h1>
+    <div id="chartContainer" style="height: 370px; width: 100%;"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js"></script>
+    <script>
+        // Replace 'a0vNToOZH7HxP3j-DVzDk4b2NfgNeshj0beLP5Z0' with your CloudFlare API token
+        const cfToken = 'a0vNToOZH7HxP3j-DVzDk4b2NfgNeshj0beLP5Z0';
+
+        // Replace '5876d9a743da34d3204658aa2b2c9c4a' with your CloudFlare zone ID
+        const zoneId = '5876d9a743da34d3204658aa2b2c9c4a';
+
+        // Function to fetch data from CloudFlare API
+        async function fetchData() {
+            const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/analytics/dashboard?since=-720&continuous=true`, {
+                headers: {
+                    'Authorization': `Bearer ${cfToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            const data = await response.json();
+            return data.result.totals.requests.all;
+        }
+
+        // Function to update the chart with new data
+        async function updateChart() {
+            const requestData = await fetchData();
+            const labels = requestData.map(entry => entry.datetime.slice(11, 16)); // Extracting time
+            const values = requestData.map(entry => entry.requests.all);
+
+            const ctx = document.getElementById('chartContainer').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Requests per Second',
+                        data: values,
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        yAxes: [{
+                            ticks: {
+                                beginAtZero: true
+                            }
+                        }]
+                    }
+                }
+            });
+        }
+
+        // Initial call to update the chart
+        updateChart();
+    </script>
+</body>
+</html>
