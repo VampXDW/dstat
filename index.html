@@ -3,71 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Request per Second Graph</title>
+    <title>Request Per Second Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Styles for the chart container */
-        #chartContainer {
-            margin-top: 20px;
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
         }
     </style>
 </head>
 <body>
-    <h1>Request per Second</h1>
-    <div id="chartContainer" style="height: 370px; width: 100%;"></div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.min.js"></script>
+    <h1>Request Per Second Monitor</h1>
+    <canvas id="rpsChart"></canvas>
     <script>
-        // Replace 'a0vNToOZH7HxP3j-DVzDk4b2NfgNeshj0beLP5Z0' with your CloudFlare API token
-        const cfToken = 'a0vNToOZH7HxP3j-DVzDk4b2NfgNeshj0beLP5Z0';
-
-        // Replace '5876d9a743da34d3204658aa2b2c9c4a' with your CloudFlare zone ID
         const zoneId = '5876d9a743da34d3204658aa2b2c9c4a';
+        const apiKey = 'a0vNToOZH7HxP3j-DVzDk4b2NfgNeshj0beLP5Z0';
+        const email = 'bagasmuhammadriszki2@gmail.com';
+        const apiUrl = `https://api.cloudflare.com/client/v4/zones/${zoneId}/analytics/dashboard?since=-600&continuous=true`;
 
-        // Function to fetch data from CloudFlare API
-        async function fetchData() {
-            const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${zoneId}/analytics/dashboard?since=-720&continuous=true`, {
+        const fetchData = async () => {
+            const response = await fetch(apiUrl, {
+                method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${cfToken}`,
+                    'X-Auth-Email': email,
+                    'X-Auth-Key': apiKey,
                     'Content-Type': 'application/json'
                 }
             });
             const data = await response.json();
-            return data.result.totals.requests.all;
-        }
+            return data.result.timeseries;
+        };
 
-        // Function to update the chart with new data
-        async function updateChart() {
-            const requestData = await fetchData();
-            const labels = requestData.map(entry => entry.datetime.slice(11, 16)); // Extracting time
-            const values = requestData.map(entry => entry.requests.all);
+        const processData = (timeseries) => {
+            return timeseries.map(point => ({
+                time: new Date(point.since).toLocaleTimeString(),
+                rps: point.requests.all / 60
+            }));
+        };
 
-            const ctx = document.getElementById('chartContainer').getContext('2d');
-            const chart = new Chart(ctx, {
+        const renderChart = (data) => {
+            const ctx = document.getElementById('rpsChart').getContext('2d');
+            const labels = data.map(item => item.time);
+            const rpsData = data.map(item => item.rps);
+
+            new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Requests per Second',
-                        data: values,
-                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        borderWidth: 1
+                        label: 'Requests Per Second',
+                        data: rpsData,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1,
+                        fill: false
                     }]
                 },
                 options: {
                     scales: {
-                        yAxes: [{
-                            ticks: {
-                                beginAtZero: true
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Time'
                             }
-                        }]
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Requests Per Second'
+                            },
+                            beginAtZero: true
+                        }
                     }
                 }
             });
-        }
+        };
 
-        // Initial call to update the chart
+        const updateChart = async () => {
+            const timeseries = await fetchData();
+            const data = processData(timeseries);
+            renderChart(data);
+        };
+
+        // Initial chart rendering
         updateChart();
+
+        // Update chart every minute
+        setInterval(updateChart, 60000);
     </script>
 </body>
 </html>
