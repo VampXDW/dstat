@@ -1,100 +1,89 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Request Per Second Monitor</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Layer7 - DSTAT</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-        }
-        canvas {
-            max-width: 100%;
-            height: auto;
-        }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+
+      body > div {
+        width: 100%;
+      }
+
+      #chart {
+        width: 80%;
+        margin: auto;
+      }
+
+      #info {
+        margin-top: 2em;
+        text-align: center;
+        font-family: Arial, Helvetica, sans-serif;
+      }
     </style>
-</head>
-<body>
-    <h1>Request Per Second Monitor</h1>
-    <canvas id="rpsChart"></canvas>
+  </head>
+
+  <body>
+    <div>
+      <h2 id="info"></h2>
+      <div id="chart"></div>
+    </div>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
     <script>
-        const zoneId = '5876d9a743da34d3204658aa2b2c9c4a';
-        const apiKey = 'eee815ae23b4b534b5d3034eaf69514c';
-        const email = 'bagasmuhammadriszki2@gmail.com';
-        const apiUrl = `https://api.cloudflare.com/client/v4/zones/${zoneId}/analytics/dashboard?since=-600&continuous=true`;
+      window.onload = () => {
+        let info = document.getElementById("info");
 
-        const fetchData = async () => {
-            const response = await fetch(apiUrl, {
-                method: 'GET',
-                headers: {
-                    'X-Auth-Email': email,
-                    'X-Auth-Key': apiKey,
-                    'Content-Type': 'application/json'
-                }
-            });
-            const data = await response.json();
-            return data.result.timeseries;
+        let chart = Highcharts.chart("chart", {
+          exporting: {
+            enabled: true,
+          },
+          chart: {
+            type: "area",
+          },
+          title: {
+            text: "Layer7 DSTAT",
+          },
+          xAxis: {
+            type: "datetime",
+          },
+          yAxis: {
+            title: {
+              text: "",
+            },
+          },
+          series: [
+            {
+              name: "Requests",
+              data: [],
+            },
+          ],
+        });
+
+        info.innerText = "Capturing requests from " + location.host + "/dstat";
+
+        let ws = new WebSocket(
+          (location.protocol === "https:" ? "wss" : "ws") + "://" + location.host + "/"
+        );
+
+        ws.onmessage = (event) => {
+          let requests = Number(event.data);
+          let time = new Date().getTime();
+          chart.series[0].addPoint([time, requests], true, chart.series[0].points.length > 60);
         };
-
-        const processData = (timeseries) => {
-            return timeseries.map(point => ({
-                time: new Date(point.since).toLocaleTimeString(),
-                rps: point.requests.all / 60
-            }));
-        };
-
-        const renderChart = (data) => {
-            const ctx = document.getElementById('rpsChart').getContext('2d');
-            const labels = data.map(item => item.time);
-            const rpsData = data.map(item => item.rps);
-
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Requests Per Second',
-                        data: rpsData,
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        borderWidth: 1,
-                        fill: false
-                    }]
-                },
-                options: {
-                    scales: {
-                        x: {
-                            display: true,
-                            title: {
-                                display: true,
-                                text: 'Time'
-                            }
-                        },
-                        y: {
-                            display: true,
-                            title: {
-                                display: true,
-                                text: 'Requests Per Second'
-                            },
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-        };
-
-        const updateChart = async () => {
-            const timeseries = await fetchData();
-            const data = processData(timeseries);
-            renderChart(data);
-        };
-
-        // Initial chart rendering
-        updateChart();
-
-        // Update chart every minute
-        setInterval(updateChart, 60000);
+      };
     </script>
-</body>
+  </body>
 </html>
