@@ -1,89 +1,97 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Layer7 - DSTAT</title>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>L7 DSTAT</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5"></script>
     <style>
-      html,
-      body {
-        height: 100%;
-        margin: 0;
-      }
-
-      body {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-      }
-
-      body > div {
-        width: 100%;
-      }
-
-      #chart {
-        width: 80%;
-        margin: auto;
-      }
-
-      #info {
-        margin-top: 2em;
-        text-align: center;
-        font-family: Arial, Helvetica, sans-serif;
-      }
+        body {
+            background-color: #000000; /* Set background color for the entire page */
+        }
     </style>
-  </head>
+</head>
+<body>
+    <div id="chart" style="width: 80vw; height: 60vh; margin: 20vh auto;"></div>
 
-  <body>
-    <div>
-      <h2 id="info"></h2>
-      <div id="chart"></div>
-    </div>
-    <script src="https://code.highcharts.com/highcharts.js"></script>
-    <script src="https://code.highcharts.com/modules/exporting.js"></script>
     <script>
-      window.onload = () => {
-        let info = document.getElementById("info");
+        const chart = echarts.init(document.getElementById('chart'));
 
-        let chart = Highcharts.chart("chart", {
-          exporting: {
-            enabled: true,
-          },
-          chart: {
-            type: "area",
-          },
-          title: {
-            text: "Layer7 DSTAT",
-          },
-          xAxis: {
-            type: "datetime",
-          },
-          yAxis: {
+        const option = {
             title: {
-              text: "",
+                text: 'L7 DSTAT',
+                textStyle: {
+                    color: '#ffffff', 
+                },
             },
-          },
-          series: [
-            {
-              name: "Requests",
-              data: [],
+            legend: {
+                data: ['Requests per Second'],
+                textStyle: {
+                    color: '#ffffff', 
+                },
             },
-          ],
-        });
-
-        info.innerText = "Capturing requests from " + location.host + "/dstat";
-
-        let ws = new WebSocket(
-          (location.protocol === "https:" ? "wss" : "ws") + "://" + location.host + "/"
-        );
-
-        ws.onmessage = (event) => {
-          let requests = Number(event.data);
-          let time = new Date().getTime();
-          chart.series[0].addPoint([time, requests], true, chart.series[0].points.length > 60);
+            xAxis: {
+                type: 'category',
+                data: [],
+                axisLine: {
+                    lineStyle: {
+                        color: '#ffffff', 
+                    },
+                },
+                axisLabel: {
+                    color: '#ffffff', 
+                },
+            },
+            yAxis: {
+                type: 'value',
+                axisLine: {
+                    lineStyle: {
+                        color: '#ffffff', 
+                    },
+                },
+                axisLabel: {
+                    color: '#ffffff',
+                },
+            },
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'cross',
+                },
+            },
+            series: [{
+                name: 'Requests per Second',
+                type: 'line',
+                smooth: true,
+                data: [],
+                maxDataPoints: 30,
+                itemStyle: {
+                    color: '#91cc75',
+                },
+            }],
         };
-      };
+
+        chart.setOption(option);
+
+        setInterval(() => {
+            fetch('/api/totalReqCount')
+                .then(response => response.json())
+                .then(data => {
+                    const now = new Date();
+                    const time = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
+                    
+                    option.xAxis.data.push(time);
+                    option.series[0].data.push(data.totalReqCount);
+
+                    if (option.xAxis.data.length > option.series[0].maxDataPoints) {
+                        option.xAxis.data.shift();
+                        option.series[0].data.shift();
+                    }
+
+                    chart.setOption(option, true);
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        }, 1000);
     </script>
-  </body>
+</body>
 </html>
